@@ -36,3 +36,4 @@ def send_onboarding():
         return jsonify({"status": "Onboarding Sent"}), 200
     except Exception as e:
         return jsonify({"status": "Error", "message": str(e)}), 500
+
