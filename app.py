@@ -16,51 +16,52 @@ HTML_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Synq Studio | Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background-color: #020617; }
-        .card { background: #0f172a; border: 1px solid #1e293b; transition: all 0.3s ease; }
-        .gold-border { border: 2px solid #fbbf24 !important; }
-    </style>
     <script>
         async function sendOnboarding(email, domain) {
             const btn = event.target;
+            const originalText = btn.innerText;
             btn.innerText = "Sending...";
-            const response = await fetch('/send_onboarding', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email: email, domain: domain})
-            });
-            const result = await response.json();
-            btn.innerText = result.status === "Onboarding Sent" ? "✅ Sent" : "❌ Failed";
+            try {
+                const response = await fetch('/send_onboarding', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email, domain: domain})
+                });
+                const result = await response.json();
+                btn.innerText = result.status === "Onboarding Sent" ? "✅ Sent" : "❌ Error";
+            } catch (e) {
+                btn.innerText = "❌ Failed";
+            }
+            setTimeout(() => { btn.innerText = originalText; }, 3000);
         }
     </script>
+    <style>
+        body { background-color: #020617; color: #e2e8f0; font-family: sans-serif; }
+        .card { background: #0f172a; border: 1px solid #1e293b; padding: 1.25rem; border-radius: 1rem; margin-bottom: 1rem; transition: all 0.2s; }
+        .gold-border { border: 2px solid #fbbf24 !important; box-shadow: 0 0 15px rgba(251, 191, 36, 0.1); }
+    </style>
 </head>
-<body class="text-slate-200 p-4 md:p-8">
-    <div class="max-w-6xl mx-auto">
-        <header class="mb-6 flex justify-between items-center">
-            <h1 class="text-3xl font-black text-white italic">SYNQ <span class="text-blue-500">STUDIO</span></h1>
-            <span class="text-green-500 text-[10px] font-black uppercase tracking-widest">● Live Engine</span>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <h1 class="text-2xl font-black italic text-white uppercase tracking-tighter">SYNQ <span class="text-blue-500">STUDIO</span></h1>
+            <span class="text-green-500 text-[10px] font-bold uppercase tracking-widest">● Cloud Active</span>
         </header>
 
-        <div class="mobile-cards space-y-4">
+        <div class="space-y-4">
             {% for row in leads %}
-            <div class="card p-5 rounded-2xl shadow-lg {{ 'gold-border' if row[7] == 'High-Ticket' }}">
-                <div class="flex justify-between items-start mb-3">
-                    <span class="text-[10px] font-bold text-blue-400 uppercase tracking-tighter">{{ row[0] }}</span>
-                    <span class="text-[10px] font-black px-2 py-0.5 rounded bg-blue-500/10 text-blue-500">{{ row[8] if row|length > 8 else 'Shopify' }}</span>
+            <div class="card {{ 'gold-border' if row[7] == 'High-Ticket' }}">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-[10px] font-mono text-slate-500">{{ row[0] }}</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-500">{{ row[8] if row|length > 8 else 'Shopify' }}</span>
                 </div>
-                
-                <h3 class="text-lg font-bold text-white mb-1">{{ row[1] }}</h3>
-                <p class="text-[10px] text-slate-500 mb-4 uppercase font-bold tracking-widest">💰 {{ row[7] if row|length > 7 else 'Analysis Pending' }}</p>
-
+                <h3 class="text-lg font-bold text-white mb-4">{{ row[1] }}</h3>
                 <div class="flex flex-col gap-2">
-                    <div class="flex gap-2">
-                        <a href="https://wa.me/?text=Hi!%20Saw%20your%20site%20{{ row[1] }}!" 
-                           target="_blank" class="flex-1 bg-green-600 text-white text-center py-2 rounded-lg text-xs font-bold uppercase">WhatsApp Pitch</a>
-                    </div>
+                    <a href="https://wa.me/?text=Hi!%20Saw%20your%20site%20{{ row[1] }}!%20I%20noticed%20you%20are%20using%20the%20{{ row[8] }}%20theme." 
+                       target="_blank" class="w-full bg-green-600 text-white text-center py-2 rounded-lg text-xs font-bold uppercase">WhatsApp Pitch</a>
                     <button onclick="sendOnboarding('contact@{{ row[1] }}', '{{ row[1] }}')" 
-                            class="w-full bg-blue-600/20 text-blue-400 border border-blue-500/30 py-2 rounded-lg text-xs font-bold uppercase">
-                        Send Welcome Pack
+                            class="w-full bg-slate-800 text-blue-400 border border-slate-700 py-2 rounded-lg text-xs font-bold uppercase">
+                        Send Onboarding
                     </button>
                 </div>
             </div>
@@ -71,7 +72,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- 2. THE SERVER LOGIC (ROUTES) ---
+# --- 2. THE SERVER LOGIC ---
 
 @app.route('/')
 def index():
@@ -80,8 +81,8 @@ def index():
         with open('synq_leads.csv', 'r') as f:
             reader = csv.reader(f)
             try:
-                next(reader) # Skip header
-                leads = list(reader)[::-1] # Show newest first
+                next(reader) 
+                leads = list(reader)[::-1] 
             except: pass
     return render_template_string(HTML_TEMPLATE, leads=leads)
 
@@ -105,15 +106,16 @@ def send_onboarding():
     domain = data.get('domain')
     
     msg = EmailMessage()
-    msg.set_content(f"Hi! We're excited to start the transformation of {domain}.\\n\\nTo begin, please provide:\\n1. Shopify Staff Access\\n2. Brand Logo\\n3. Product Photos\\n\\nBest,\\nSamuel Opeyemi\\nSynq Studio")
-    msg['Subject'] = f"Onboarding: {domain} x Synq Studio"
-    msg['From'] = "your-email@gmail.com" # Update to your email
+    # Professional Agency Onboarding Content
+    msg.set_content(f"Hi! We're excited to start the transformation of {domain}.\\n\\nTo begin our build process, please provide:\\n1. Shopify Staff Access (growthprofesors@gmail.com)\\n2. Your Brand Logo (High Resolution)\\n3. Product Photography Folder\\n\\nBest,\\nSamuel Opeyemi\\nSynq Studio")
+    msg['Subject'] = f"Next Steps: {domain} x Synq Studio"
+    msg['From'] = "growthprofesors@gmail.com"
     msg['To'] = target_email
 
     try:
-        # Using your secure App Password: hthu cwcn smge mdch
+        # Using your secure App Password
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login("your-email@gmail.com", "hthu cwcn smge mdch")
+            smtp.login("growthprofesors@gmail.com", "hthu cwcn smge mdch")
             smtp.send_message(msg)
         return jsonify({"status": "Onboarding Sent"}), 200
     except Exception as e:
