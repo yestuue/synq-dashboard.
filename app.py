@@ -5,7 +5,6 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Simplified Template to ensure zero render errors
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -13,21 +12,33 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Synq Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        async function sendMail(domain) {
+            const btn = event.target;
+            btn.innerText = "...";
+            const res = await fetch('/send_onboarding', {
+                method:'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body:JSON.stringify({email: 'contact@'+domain, domain: domain})
+            });
+            btn.innerText = res.ok ? "✅" : "❌";
+        }
+    </script>
 </head>
 <body class="bg-slate-950 text-slate-200 p-4">
     <div class="max-w-md mx-auto">
         <header class="mb-6 border-b border-slate-800 pb-4">
             <h1 class="text-xl font-black italic">SYNQ STUDIO</h1>
-            <p class="text-[10px] text-blue-400 font-bold uppercase">Pipeline: ${{ pipeline }} | High-Ticket: {{ high_ticket }}</p>
+            <p class="text-[10px] text-blue-400 font-bold uppercase">Pipeline: ${{ "{:,}".format(pipeline) }} | High-Ticket: {{ high_ticket }}</p>
         </header>
         <div class="space-y-4">
             {% for row in leads %}
-            <div class="bg-slate-900 border {{ 'border-yellow-500' if row[7] == 'High-Ticket' else 'border-slate-800' }} p-4 rounded-xl">
+            <div class="bg-slate-900 border {{ 'border-yellow-500' if row[7]|lower == 'high-ticket' else 'border-slate-800' }} p-4 rounded-xl">
                 <h3 class="text-md font-bold text-white">{{ row[1] }}</h3>
                 <p class="text-[10px] text-slate-500 mb-4">{{ row[8] }} - {{ row[0] }}</p>
                 <div class="flex gap-2">
                     <a href="https://wa.me/?text=Hi!%20Saw%20your%20site%20{{ row[1] }}" class="flex-1 bg-green-600 text-[10px] text-center py-2 rounded font-bold">WHATSAPP</a>
-                    <button onclick="fetch('/send_onboarding', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:'contact@'+'{{row[1]}}', domain:'{{row[1]}}'})})" class="flex-1 bg-blue-600 text-[10px] py-2 rounded font-bold uppercase">Onboard</button>
+                    <button onclick="sendMail('{{ row[1] }}')" class="flex-1 bg-blue-600 text-[10px] py-2 rounded font-bold uppercase">Onboard</button>
                 </div>
             </div>
             {% endfor %}
@@ -43,13 +54,16 @@ def index():
     if os.path.exists('synq_leads.csv'):
         with open('synq_leads.csv', 'r') as f:
             data = list(csv.reader(f))
-            if len(data) > 1:
-                for row in data[1:]:
-                    if len(row) > 7 and row[7] == "High-Ticket":
+            for row in data[1:]:
+                if len(row) > 7:
+                    rev = row[7].strip().lower()
+                    if rev == "high-ticket":
                         high_ticket += 1
                         pipeline += 1200
-                    elif len(row) > 7 and row[7] == "Mid-Range": pipeline += 600
-                    if len(row) > 7 and row[7] != "Low": leads.append(row)
+                        leads.append(row)
+                    elif rev == "mid-range":
+                        pipeline += 600
+                        leads.append(row)
     return render_template_string(HTML_TEMPLATE, leads=leads[::-1], pipeline=pipeline, high_ticket=high_ticket)
 
 @app.route('/add_lead', methods=['POST'])
